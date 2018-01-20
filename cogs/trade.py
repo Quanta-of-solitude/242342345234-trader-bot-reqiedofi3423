@@ -1,0 +1,176 @@
+import os
+import json
+import uuid
+import discord
+import myjson
+import re
+from discord.ext import commands
+
+class Store:
+    def __init__(self, bot):
+        self.bot = bot
+
+    @commands.command()
+    async def ttest(self,ctx, *, args):
+        a_i = ctx.author.id
+        file  = open("data/trade_store.json", 'r+')
+        file = file.read()
+        store = json.loads(file)
+        store["{}".format(a_i)] = {}
+        store["{}".format(a_i)]["word"] = args
+        store = json.dumps(store)
+        file = open("data/trade_store.json", 'r+')
+        file = file.write(store)
+
+    @commands.command()
+    async def trade(self,ctx,stuff:str = None,quantity:str = None,cost:str = None):
+        try:
+            if stuff == None or quantity == None or cost == None:
+                await ctx.send("`Error: Didn't give the required data!`")
+                return
+            author = ctx.author
+            url_trade = "{}".format(os.environ.get("store_url"))
+            url_name = "{}".format(os.environ.get("names_url"))
+            name = myjson.get(url_name)
+            name = json.loads(name)
+            store = myjson.get(url_trade)
+            store = json.loads(store)
+            id_u = str(uuid.uuid4())[:8]
+            if id_u not in store:
+                secret = str(uuid.uuid4())
+                store["{}".format(id_u)] = {}
+                store["{}".format(id_u)]["item"] = {}
+                store["{}".format(id_u)]["item"]["name"] = stuff
+                store["{}".format(id_u)]["item"]["quantity"] = quantity
+                store["{}".format(id_u)]["item"]["cost"] = cost
+                store["{}".format(id_u)]["item"]["seller"] = "{}".format(author)
+                store["{}".format(id_u)]["item"]["setter_id"] = "{}".format(author.id)
+                store["{}".format(id_u)]["item"]["seller_avatar"] = "{}".format(author.avatar_url)
+                store["{}".format(id_u)]["item"]["secret"] = "{}".format(secret)
+                nameandid = "ID: "+ id_u+"   "+stuff
+                name.append(nameandid)
+                url_trade = myjson.store(json.dumps(store),update=url_trade)
+                url_name = myjson.store(json.dumps(name),update=url_name)
+                await ctx.send("Success! with trade id: `{}`".format(id_u))
+                await ctx.author.send("Your Item: `{0}` has been added, trade id: `{1}` and secret: `{2}`, you need the secret to delete your entry(not made yet).".format(stuff, id_u, secret))
+
+            else:
+                id_u = str(uuid.uuid4())[:8]
+                secret = str(uuid.uuid4())
+                store["{}".format(id_u)] = {}
+                store["{}".format(id_u)]["item"] = {}
+                store["{}".format(id_u)]["item"]["name"] = stuff
+                store["{}".format(id_u)]["item"]["quantity"] = quantity
+                store["{}".format(id_u)]["item"]["cost"] = cost
+                store["{}".format(id_u)]["item"]["seller"] = "{}".format(author)
+                store["{}".format(id_u)]["item"]["setter_id"] = "{}".format(author.id)
+                store["{}".format(id_u)]["item"]["seller_avatar"] = "{}".format(author.avatar_url)
+                store["{}".format(id_u)]["item"]["secret"] = "{}".format(secret)
+                nameandid = "ID: "+ id_u+"   "+stuff
+                name.append(nameandid)
+                url_trade = myjson.store(json.dumps(store),update=url_trade)
+                url_name = myjson.store(json.dumps(name),update=url_name)
+                await ctx.send("Success! with trade id: `{}`".format(id_u))
+                await ctx.author.send("Your Item: `{0}` has been added, trade id: `{1}` and secret: `{2}`, you need the secret to delete your entry(Not made yet).".format(stuff, id_u,secret))
+        except Exception as e:
+            print("`Error: {}`".format(e))
+
+    @commands.command()
+    async def trades(self, ctx):
+        '''loads all trades'''
+        try:
+            url_name = "{}".format(os.environ.get("names_url"))
+            name = myjson.get(url_name)
+            items = json.loads(name)
+            added_items = '\n'.join(items)
+            try:
+                out = await ctx.send("```{}```".format(added_items))
+            except:
+                paginated_text = ctx.paginate(added_items)
+                for page in paginated_text:
+                    if page == paginated_text[-1]:
+                        out = await ctx.send(f'```\n{page}\n```')
+                        break
+                    await ctx.send(f'```\n{page}\n```')
+        except Exception as e:
+            print("`Error: {}`".format(e))
+            await ctx.send("`Error: List Not Found!`")
+
+    @commands.command()
+    async def infotrade(self, ctx, *,code:str = None):
+        '''get info, seller etc'''
+        try:
+            if code == None:
+                await ctx.send("`Error: Missing ID!`")
+                return
+            url_trade = "{}".format(os.environ.get("store_url"))
+            store = myjson.get(url_trade)
+            store = json.loads(store)
+            info = store["{}".format(code)]["item"]
+            name = info["name"]
+            quantity = info["quantity"]
+            cost = info["cost"]
+            seller = info["seller"]
+            setter_id = info["setter_id"]
+            avatar = info["seller_avatar"]
+            em = discord.Embed()
+            em.set_author(name = "Info:", icon_url = "https://loading.io/spinners/recycle/lg.recycle-spinner.gif")
+            em.add_field(name = "Name:", value = name,inline = False)
+            em.add_field(name = "Quantity:", value = quantity,inline = False)
+            em.add_field(name = "Cost:", value = cost,inline = False)
+            em.add_field(name = "Seller:", value = seller,inline = False)
+            em.add_field(name = "Seller ID:", value = setter_id,inline = False)
+            em.set_thumbnail(url = avatar)
+            em.set_footer(text = "|Trader-Bot| requested by {}".format(ctx.message.author.name), icon_url = self.bot.user.avatar_url)
+            em.color=discord.Colour.blue()
+            await ctx.send(embed = em)
+
+        except Exception as e:
+            print(e)
+            await ctx.send("`Error: No such Trade ID exists!`")
+
+''' @commands.command()
+    async def testdeltrade(self, ctx,*,code:str = None):
+        #delete your trade
+        try:
+            if code == None:
+                await ctx.send("`Error: ID not Provided!`")
+                return
+            file  = open("data/trade_store.json", 'r+')
+            file = file.read()
+            file2 = open("data/item_list.json", 'r+')
+            file2 = file2.read()
+            name = json.loads(file2)
+            store = json.loads(file)
+            to_string = '\n'.join(name)
+            match_code = re.compile("{}(.*)".format(code))
+            found_match = match_code.findall(to_string)
+            found = "ID: "+code+found_match[0]
+            secret = store["{}".format(code)]["item"]["secret"]
+            print(secret)
+            await ctx.send("`Enter the secret allocated: with ! at beginning`")
+            def check(ctx):
+                return ctx.content.startswith('!')
+            msge = await self.bot.wait_for('message', check=check)
+            print(msge)
+            if msge.content == "!"+secret: #and code in name:
+                store.pop("{}".format(code), None)
+                name.remove(found)
+                store = json.dumps(store)
+                name = json.dumps(name)
+                file = open("data/trade_store.json", 'r+')
+                file = file.write(store)
+                file2 = open("data/item_list.json", 'r+')
+                file2 = file2.write(name)
+                await ctx.send("`Success: The Entry has been removed!`")
+            else:
+                await ctx.send("`Error: Invalid Secret!`")
+
+        except Exception as e:
+            print(e)
+            await ctx.send("`Error`")'''
+
+
+
+def setup(bot):
+    bot.add_cog(Store(bot))
